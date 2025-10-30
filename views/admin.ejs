@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Sistem Pembelian</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="header">
+    <h1>🛒 Admin - Sistem Pembelian Toko</h1>
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('produk')">
+        📦 Daftar Produk
+      </button>
+      <button class="tab-button" onclick="switchTab('riwayat')">
+        📋 Riwayat Pembelian
+      </button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="alert" class="alert"></div>
+
+    <div id="tab-produk" class="tab-content active">
+      <h2>
+        <span>📦</span>
+        <span>Daftar Produk & Input Pembelian</span>
+      </h2>
+
+      <div class="search-filter-section">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            class="search-input" 
+            id="searchInput" 
+            placeholder="Cari nama produk..."
+            onkeyup="filterProducts()">
+        </div>
+
+        <div class="filter-row">
+          <div class="filter-group">
+            <label class="filter-label">Kategori</label>
+            <select class="filter-select" id="filterKategori" onchange="filterProducts()">
+              <option value="">Semua Kategori</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Status Stock</label>
+            <select class="filter-select" id="filterStock" onchange="filterProducts()">
+              <option value="">Semua Stock</option>
+              <option value="tersedia">Tersedia (>10)</option>
+              <option value="rendah">Rendah (1-10)</option>
+              <option value="habis">Habis (0)</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Urutkan</label>
+            <select class="filter-select" id="sortBy" onchange="filterProducts()">
+              <option value="nama-asc">Nama (A-Z)</option>
+              <option value="nama-desc">Nama (Z-A)</option>
+              <option value="harga-asc">Harga (Terendah)</option>
+              <option value="harga-desc">Harga (Tertinggi)</option>
+              <option value="stock-asc">Stock (Terendah)</option>
+              <option value="stock-desc">Stock (Tertinggi)</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <button class="btn-reset" onclick="resetFilters()">🔄 Reset Filter</button>
+          </div>
+        </div>
+      </div>
+
+      <% if (produk && produk.length > 0) { %>
+        <div class="grid" id="productGrid">
+          <% produk.forEach(function(p) { 
+               var stockValue = p.stock || 0;
+               var stockClass = 'stock';
+               if (stockValue === 0) stockClass = 'stock stock-low';
+               else if (stockValue < 10) stockClass = 'stock stock-medium';
+               var hargaText = (typeof p.harga !== 'undefined') ? (Number(p.harga).toLocaleString('id-ID')) : '0';
+          %>
+            <div class="card product-card" 
+                 data-nama="<%= (p.nama_produk || '').toLowerCase() %>"
+                 data-kategori="<%= (p.kategori || '').toLowerCase() %>"
+                 data-stock="<%= stockValue %>"
+                 data-harga="<%= p.harga || 0 %>">
+              <div class="card-header">
+                <h3><%= p.nama_produk || 'Produk' %></h3>
+                <span class="category-badge"><%= p.kategori || '-' %></span>
+              </div>
+              <span class="price">Rp <%= hargaText %></span>
+              <span class="<%= stockClass %>">
+                <% if (stockValue === 0) { %>
+                  ❌ Stock: <%= stockValue %> unit
+                <% } else if (stockValue < 10) { %>
+                  ⚠️ Stock: <%= stockValue %> unit
+                <% } else { %>
+                  ✅ Stock: <%= stockValue %> unit
+                <% } %>
+              </span>
+
+              <% if (stockValue > 0) { %>
+                <form onsubmit="submitPembelian(event, <%= p.id %>)">
+                  <div class="form-group">
+                    <label>Jumlah Beli:</label>
+                    <input type="number" name="jumlah" min="1" max="<%= stockValue %>" value="1" required>
+                  </div>
+                  <button type="submit">🛍️ Proses Pembelian</button>
+                </form>
+              <% } else { %>
+                <button disabled>❌ Stock Habis</button>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+
+        <div id="noResults" class="no-results" style="display: none;">
+          <div class="no-results-icon">🔍</div>
+          <p><strong>Tidak ada produk yang ditemukan</strong></p>
+          <p style="color: #7f8c8d; margin-top: 10px;">Coba ubah kata kunci atau filter pencarian</p>
+        </div>
+      <% } else { %>
+        <div class="empty-state">
+          <div class="empty-icon">📦</div>
+          <p>Belum ada produk tersedia</p>
+        </div>
+      <% } %>
+    </div>
+
+    <div id="tab-riwayat" class="tab-content">
+      <h2>
+        <span>📋</span>
+        <span>Riwayat Pembelian</span>
+      </h2>
+
+      <% if (pembelian && pembelian.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Produk</th>
+              <th>Jumlah</th>
+              <th>Total Harga</th>
+              <th>Tanggal</th>
+              <th>Jam</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% pembelian.forEach(function(p) {
+                 var totalText = (typeof p.total_harga !== 'undefined') ? (Number(p.total_harga).toLocaleString('id-ID')) : '0';
+                 var date = p.tanggal ? new Date(p.tanggal) : null;
+                 var tanggalText = date ? date.toLocaleDateString('id-ID', { 
+                   day: '2-digit', 
+                   month: 'long', 
+                   year: 'numeric' 
+                 }) : '-';
+                 var jamText = date ? date.toLocaleTimeString('id-ID', { 
+                   hour: '2-digit', 
+                   minute: '2-digit',
+                 }) : '-';
+                 var status = p.status || 'aktif';
+            %>
+              <tr>
+                <td><strong>#<%= p.id || '-' %></strong></td>
+                <td><%= p.nama_produk || '-' %></td>
+                <td><%= p.jumlah || 0 %> unit</td>
+                <td><strong>Rp <%= totalText %></strong></td>
+                <td><%= tanggalText %></td>
+                <td><%= jamText %></td>
+                <td>
+                  <span class="status status-<%= status %>">
+                    <%= status %>
+                  </span>
+                </td>
+                <td>
+                  <% if (status === 'aktif') { %>
+                    <button class="btn-cancel" onclick="cancelPembelian(<%= p.id %>)">
+                      ❌ Batalkan
+                    </button>
+                  <% } else { %>
+                    <button class="btn-cancel" disabled>Dibatalkan</button>
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <p>Belum ada riwayat pembelian</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>
